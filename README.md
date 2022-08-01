@@ -18,7 +18,7 @@ This bot monitors given YouTube channels and posts a notification to Discord cha
 1. Find a Discord channel you want to use and right click it to get the channel ID
 1. Use this site to obtain YouTube channel id https://commentpicker.com/youtube-channel-id.php
 1. Copy .env.example to .env and fill in Discord and YouTube parameters
-1. Install dependencies: `pip install discord.py google-api-python-client google-auth-oauthlib google-auth-httplib2`
+1. Install dependencies: `pip install discord.py google-api-python-client google-auth-oauthlib google-auth-httplib2 python-dotenv`
 1. Setup database: `python bottiapina-cli.py db-reset`
 1. Add YouTube channels: `python bottiapina-cli.py db-add-channel [channel id]`
 1. Start the bot: `python bottiapina.py`
