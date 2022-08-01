@@ -41,7 +41,7 @@ class ApinaCommands(commands.Cog):
     async def onkokakkahata(self, ctx):
         await ctx.send('I\'m ok!')
 
-    @tasks.loop(seconds = 5)
+    @tasks.loop(seconds = 900) # 15 mins
     async def check_for_new_videos(self):
         channel = bot.get_channel(int(DISCORD_CHANNEL))
         print("Checking for new content. Posting to channel %s" % (DISCORD_CHANNEL))
