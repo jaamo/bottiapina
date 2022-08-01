@@ -30,7 +30,7 @@ class ApinaDB:
     def update_latest_video(self, channel_id, video_id, video_title, video_url, video_description):
         self.cur.execute('''
             UPDATE      channels 
-            SET         video_id = '%s', video_title = '%s', video_url = '%s', video_description = '%s' 
-            WHERE       channel_id = '%s' ''' 
-            % (video_id, video_title, video_url, video_description, channel_id))
+            SET         video_id = ?, video_title = ?, video_url = ?, video_description = ? 
+            WHERE       channel_id = ? ''',
+            (video_id, video_title, video_url, video_description, channel_id))
         self.con.commit()
