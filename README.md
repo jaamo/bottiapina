@@ -35,6 +35,10 @@ To see available commands:
 
 `python bottiapina-cli.py`
 
+## Production deployment :D
+
+`rsync ./*.py pi@192.168.1.75:/home/pi/bottiapina/`
+
 ## Related documentation:
 
 - https://discord.com/developers/applications/
