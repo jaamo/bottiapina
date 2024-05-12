@@ -18,6 +18,7 @@ This bot monitors given YouTube channels and posts a notification to Discord cha
 1. Find a Discord channel you want to use and right click it to get the channel ID
 1. Use this site to obtain YouTube channel id https://commentpicker.com/youtube-channel-id.php
 1. Copy .env.example to .env and fill in Discord and YouTube parameters
+1. Run `source .venv/bin/activate` if you are using venv
 1. Install dependencies: `pip install discord.py google-api-python-client google-auth-oauthlib google-auth-httplib2 python-dotenv`
 1. Setup database: `python bottiapina-cli.py db-reset`
 1. Add YouTube channels: `python bottiapina-cli.py db-add-channel [channel id]`
@@ -49,5 +50,30 @@ To see available commands:
 python3 bot.py
 
 Channel ids:
-Kampiapina UC2Prp3t7Ol-a041FXTyCzNQ
-Velogi UCKmHOEIHQyakrhBQrf6z9Yg
+
+python3 bottiapina-cli.py db-add-channel UC2Prp3t7Ol-a041FXTyCzNQ # Kampiapina  
+python3 bottiapina-cli.py db-add-channel UCKmHOEIHQyakrhBQrf6z9Yg # Velogi  
+python3 bottiapina-cli.py db-add-channel UCQDefGnTJGWnangzTnFNFhQ # ketjurevoluutio  
+python3 bottiapina-cli.py db-add-channel UCumq7OOwpV23wGKlsm5bZqg # tapio-t  
+python3 bottiapina-cli.py db-add-channel UCITuIFItrLMDpI44cjB1c_w # resupekka  
+python3 bottiapina-cli.py db-add-channel UCG90HVVPlJ47ABh-7XXEajw # paulus  
+python3 bottiapina-cli.py db-add-channel UC9STmnDzGHmiggXaldum7fg # samulione  
+python3 bottiapina-cli.py db-add-channel UCOR6LpQCATsc55L-dyw9IoA # aleksi sanaksenaho  
+python3 bottiapina-cli.py db-add-channel UCFSZyCE-UD0LtDP3Lvdk6gg # japen pyöräjutut  
+python3 bottiapina-cli.py db-add-channel UCbZNGF8yVfa3dJKh7oE3iTA # viiksivelo  
+python3 bottiapina-cli.py db-add-channel UCcBjJffYj4QB1ngg6St8giQ # utelias mieli  
+python3 bottiapina-cli.py db-add-channel UCjQmJj4F8PcZRByRAXcBXWw # baltsu  
+python3 bottiapina-cli.py db-add-channel UCp48RxIksJMaxAcrxsAJr9Q # superpate  
+python3 bottiapina-cli.py db-add-channel UCYOIFqlogi0_EYgI2_QQvdw # fillaripäiväkirja  
+python3 bottiapina-cli.py db-add-channel UChqBVvX3faw5Saf_6aBmDnQ # pelkkää alamäkeä  
+python3 bottiapina-cli.py db-add-channel UCafr-brvPH5blLgxN6YhQkg # alanko ulkoilee  
+python3 bottiapina-cli.py db-add-channel UC9s3_papfs8fSXdw-dUwbBA # polkuaddikti  
+python3 bottiapina-cli.py db-add-channel UCKeDoCURs8VBtyrsJlsCjIA # sarpale  
+python3 bottiapina-cli.py db-add-channel UCOE9Idh-XjDCxwc-LjfNo9g # masa  
+python3 bottiapina-cli.py db-add-channel UCZkfDgS6O6z0EwjVPJBipGQ # mikko vulli  
+python3 bottiapina-cli.py db-add-channel UCKeHwycZltSbByaRxuS34yQ # gravelsoturi  
+python3 bottiapina-cli.py db-add-channel UCPCkw_Z-qdThcIqAcR_Lmbw # damuride  
+python3 bottiapina-cli.py db-add-channel UCt-5eWIwd3PvIr_VQ4QOb1g # pakkopolkee  
+python3 bottiapina-cli.py db-add-channel UC-OUJ1YPoman9bBeN8Kk0gA # rikun mtb juttuja  
+python3 bottiapina-cli.py db-add-channel UC51syC8PWYK7XQ9yin_96fA # activelifeinfinland
+python3 bottiapina-cli.py db-add-channel UCd6k7GfrOpLlFabSplva7OA # saukki
