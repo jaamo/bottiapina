@@ -77,3 +77,6 @@ python3 bottiapina-cli.py db-add-channel UCt-5eWIwd3PvIr_VQ4QOb1g # pakkopolkee
 python3 bottiapina-cli.py db-add-channel UC-OUJ1YPoman9bBeN8Kk0gA # rikun mtb juttuja  
 python3 bottiapina-cli.py db-add-channel UC51syC8PWYK7XQ9yin_96fA # activelifeinfinland  
 python3 bottiapina-cli.py db-add-channel UCd6k7GfrOpLlFabSplva7OA # saukki  
+python3 bottiapina-cli.py db-add-channel UClGzNxV6GrPi4NyYvoEgZDw # Puhutaan pyöräilystä  
+python3 bottiapina-cli.py db-add-channel UCav1yoInd0IJ5wcNxkrd6PQ # Pyöräily, retkeily, elämä
+python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus
