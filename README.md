@@ -80,3 +80,6 @@ python3 bottiapina-cli.py db-add-channel UCd6k7GfrOpLlFabSplva7OA # saukki
 python3 bottiapina-cli.py db-add-channel UClGzNxV6GrPi4NyYvoEgZDw # Puhutaan pyöräilystä  
 python3 bottiapina-cli.py db-add-channel UCav1yoInd0IJ5wcNxkrd6PQ # Pyöräily, retkeily, elämä
 python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus
+python3 bottiapina-cli.py db-add-channel UClW8fnS0yeCMGEjCKd7OlHg # pekka tahkola 
+python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�
+python3 bottiapina-cli.py db-add-channel UCzEv8zvMz9LMKBajhzhBEyA # mika kimmo
