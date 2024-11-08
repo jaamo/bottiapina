@@ -79,7 +79,12 @@ python3 bottiapina-cli.py db-add-channel UC51syC8PWYK7XQ9yin_96fA # activelifein
 python3 bottiapina-cli.py db-add-channel UCd6k7GfrOpLlFabSplva7OA # saukki  
 python3 bottiapina-cli.py db-add-channel UClGzNxV6GrPi4NyYvoEgZDw # Puhutaan pyöräilystä  
 python3 bottiapina-cli.py db-add-channel UCav1yoInd0IJ5wcNxkrd6PQ # Pyöräily, retkeily, elämä
-python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus
-python3 bottiapina-cli.py db-add-channel UClW8fnS0yeCMGEjCKd7OlHg # pekka tahkola 
-python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�
-python3 bottiapina-cli.py db-add-channel UCzEv8zvMz9LMKBajhzhBEyA # mika kimmo
+python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus  
+python3 bottiapina-cli.py db-add-channel UClW8fnS0yeCMGEjCKd7OlHg # pekka tahkola  
+python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�  
+python3 bottiapina-cli.py db-add-channel UCzEv8zvMz9LMKBajhzhBEyA # mika kimmo  
+python3 bottiapina-cli.py db-add-channel UCl21-3ne4qVuePHPTx5LEbQ # fillaribobi
+python3 bottiapina-cli.py db-add-channel UCOkR8nsa6yVPf0NpM2VgUJA # paikallinen_grvl  
+python3 bottiapina-cli.py db-add-channel UCDVk24pXWVHzsMDGC8lyJeg # klasumenee  
+python3 bottiapina-cli.py db-add-channel UCCL1-1ovT_HiQfLiFgu-Bjg # markuskiili  
+
