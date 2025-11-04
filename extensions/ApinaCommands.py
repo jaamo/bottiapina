@@ -4,6 +4,7 @@ import threading
 
 import discord
 from discord.ext import tasks, commands
+from discord.types.channel import Channel
 from dotenv import load_dotenv
 
 from apinadb import ApinaDB
@@ -17,7 +18,7 @@ apinaDB = ApinaDB()
 youtube = YouTube()
 
 class ApinaCommands(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.check_for_new_videos.start()
         print("Initialize bot")
@@ -39,6 +40,8 @@ Kanavalistalle lisäillään Suomalaisia YouTube-kanavia, jotka tuottavat aktiiv
 
     @tasks.loop(seconds = 900) # 15 mins, 900 seconds
     async def check_for_new_videos(self):
+        if not DISCORD_CHANNEL:
+            return
         channel = self.bot.get_channel(int(DISCORD_CHANNEL))
         print("Checking for new content. Posting to channel %s" % (DISCORD_CHANNEL))
         if channel:
@@ -46,7 +49,8 @@ Kanavalistalle lisäillään Suomalaisia YouTube-kanavia, jotka tuottavat aktiiv
             print("New content:")
             print(new_videos)
             for video in new_videos:
-                await channel.send("Uusi video! %s: %s %s" % (video["channel_name"], video["video_title"], video["video_url"]))
+                msg = await channel.send("Uusi video! %s: %s %s" % (video["channel_name"], video["video_title"], video["video_url"]))
+                await msg.create_thread(name=video["video_title"])
                 apinaDB.update_latest_video(
                     video["channel_id"],
                     video["video_id"],
