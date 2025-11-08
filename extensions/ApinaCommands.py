@@ -26,7 +26,7 @@ class ApinaCommands(commands.Cog):
         self.check_for_new_videos.cancel()
         print("Unload bot")
 
-    @commands.command(name="apinahelp")
+    @commands.command(name="apina-help")
     async def help(self, ctx):
         help_text = """**Bottiapina - Käytettävissä olevat komennot:**
 
@@ -42,7 +42,7 @@ class ApinaCommands(commands.Cog):
 Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita."""
         await ctx.send(help_text)
 
-    @commands.command(name="list")
+    @commands.command(name="apina-list")
     async def list(self, ctx):
         channel_list = []
         channels = apinaDB.get_channels()
@@ -52,7 +52,7 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
             channel_list.append("%s (%s)" % (channel_name, channel_id))
         await ctx.send('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
 
-    @commands.command(name="add")
+    @commands.command(name="apina-add")
     @commands.has_permissions(manage_guild=True)
     async def add(self, ctx, identifier: str = None):
         if not identifier:
@@ -101,7 +101,7 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
         except Exception as e:
             await ctx.send("Virhe kanavan lisäämisessä: %s" % (str(e)))
 
-    @commands.command(name="remove")
+    @commands.command(name="apina-remove")
     @commands.has_permissions(manage_guild=True)
     async def remove(self, ctx, channel_id: str = None):
         if not channel_id:
