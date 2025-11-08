@@ -47,6 +47,20 @@ To see available commands:
 
 `python bottiapina-cli.py`
 
+## Discord bot commands
+
+The bot responds to commands with the `+` prefix. Available commands:
+
+- `+apinahelp` - Shows help text with all available commands
+- `+list` - Lists all followed YouTube channels with their names and IDs
+- `+add handle:channelname` - Adds a channel by handle (e.g. `+add handle:kampiapina`)
+- `+add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Adds a channel by YouTube channel ID
+- `+remove <channel_id>` - Removes a channel from the list
+
+**Note:** The `+add` and `+remove` commands require moderator permissions (manage_guild permission).
+
+You can also add channels using the CLI tool during setup, but the Discord commands allow managing channels without stopping the bot.
+
 ## Debugging tips
 
 1. Empty database `python bottiapina-cli.py db-reset`

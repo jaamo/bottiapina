@@ -21,6 +21,11 @@ class ApinaDB:
     def get_channels(self):
         return self.cur.execute('SELECT * FROM channels')
 
+    # Check if channel exists.
+    def channel_exists(self, channel_id):
+        self.cur.execute('SELECT channel_id FROM channels WHERE channel_id = ?', (channel_id,))
+        return self.cur.fetchone() is not None
+
     # Add channel.
     def add_channel(self, channel_id, channel_name, upload_playlist_id):
         # No idea if this is safe :shrug:
@@ -34,3 +39,9 @@ class ApinaDB:
             WHERE       channel_id = ? ''',
             (video_id, video_title, video_url, video_description, channel_id))
         self.con.commit()
+
+    # Remove channel.
+    def remove_channel(self, channel_id):
+        self.cur.execute('DELETE FROM channels WHERE channel_id = ?', (channel_id,))
+        self.con.commit()
+        return self.cur.rowcount > 0

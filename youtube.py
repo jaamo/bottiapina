@@ -27,6 +27,15 @@ class YouTube:
         )
         return request.execute()
 
+    def get_channel_by_handle(self, handle):
+        # Remove @ if present
+        handle = handle.lstrip('@')
+        request = self.youtube.channels().list(
+            part="snippet,contentDetails",
+            forHandle=handle
+        )
+        return request.execute()
+
     def get_latest_upload_id(self, playlist_id):
         request = self.youtube.playlistItems().list(
             part="id,contentDetails,snippet",
