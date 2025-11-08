@@ -4,7 +4,6 @@ import threading
 
 import discord
 from discord.ext import tasks, commands
-from discord.types.channel import Channel
 from dotenv import load_dotenv
 
 from apinadb import ApinaDB
