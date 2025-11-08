@@ -49,6 +49,11 @@ To see available commands:
 
 ## Debugging tips
 
+1. Empty database `python bottiapina-cli.py db-reset`
+1. Use test channel id
+1. Add single channel with `python3 bottiapina-cli.py db-add-channel UC2Prp3t7Ol-a041FXTyCzNQ`
+1. Run the bot `python bottiapina.py`
+
 New content is checked every 15 minutes.  
 Reduce the time in extensions/ApinaCommands.py
 
