@@ -76,6 +76,9 @@ Reduce the time in extensions/ApinaCommands.py
 `rsync ./*.py pi@192.168.1.75:/home/pi/bottiapina/`  
 `rsync -rav ./extensions/*.py pi@192.168.1.75:/home/pi/bottiapina/extensions/`
 
+Backup database:
+`rsync pi@192.168.1.75:/home/pi/bottiapina/bottiapina.db .`
+
 ## Related documentation:
 
 - https://discord.com/developers/applications/
