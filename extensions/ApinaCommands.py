@@ -3,6 +3,7 @@ import json
 import threading
 
 import discord
+from discord import app_commands
 from discord.ext import tasks, commands
 from dotenv import load_dotenv
 
@@ -26,64 +27,61 @@ class ApinaCommands(commands.Cog):
         self.check_for_new_videos.cancel()
         print("Unload bot")
 
-    @commands.command(name="apinahelp")
-    async def help(self, ctx):
+    @app_commands.command(name="apina-help", description="Näyttää kaikki käytettävissä olevat komennot")
+    async def help(self, interaction: discord.Interaction):
         help_text = """**Bottiapina - Käytettävissä olevat komennot:**
 
-`+list` - Näyttää listan kaikista seuratuista YouTube-kanavista
+`/apina-list` - Näyttää listan kaikista seuratuista YouTube-kanavista
 
-`+add handle:channelname` - Lisää kanavan handlella (esim. `+add handle:kampiapina`)
-`+add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Lisää kanavan ID:llä
+`/apina-add` - Lisää kanavan handlella tai ID:llä
 *Vain moderaattorit voivat käyttää*
 
-`+remove <channel_id>` - Poistaa kanavan listalta
+`/apina-remove` - Poistaa kanavan listalta
 *Vain moderaattorit voivat käyttää*
 
 Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita."""
-        await ctx.send(help_text)
+        await interaction.response.send_message(help_text)
 
-    @commands.command(name="list")
-    async def list(self, ctx):
+    @app_commands.command(name="apina-list", description="Näyttää listan kaikista seuratuista YouTube-kanavista")
+    async def list(self, interaction: discord.Interaction):
         channel_list = []
         channels = apinaDB.get_channels()
         for channel in channels:
             channel_id = channel[0]
             channel_name = channel[1]
             channel_list.append("%s (%s)" % (channel_name, channel_id))
-        await ctx.send('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
+        
+        if not channel_list:
+            await interaction.response.send_message("Ei seurattuja kanavia.")
+        else:
+            await interaction.response.send_message('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
 
-    @commands.command(name="add")
-    @commands.has_permissions(manage_guild=True)
-    async def add(self, ctx, identifier: str = None):
+    @app_commands.command(name="apina-add", description="Lisää YouTube-kanavan listalle")
+    @app_commands.describe(
+        type="Valitse onko kyseessä handle vai ID",
+        identifier="Kanavan handle (esim. kampiapina) tai ID (esim. UC2Prp3t7Ol-a041FXTyCzNQ)"
+    )
+    @app_commands.choices(type=[
+        app_commands.Choice(name="Handle", value="handle"),
+        app_commands.Choice(name="ID", value="id")
+    ])
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def add(self, interaction: discord.Interaction, type: str, identifier: str):
         if not identifier:
-            await ctx.send("Käyttö: `+add handle:channelname` tai `+add id:UC2Prp3t7Ol-a041FXTyCzNQ`")
+            await interaction.response.send_message("Anna kanavan handle tai ID.", ephemeral=True)
             return
 
-        # Detect if identifier is a handle (starts with handle:) or an ID (starts with id:)
-        is_handle = identifier.startswith('handle:')
-        is_id = identifier.startswith('id:')
-        
-        # Extract the actual identifier
-        if is_handle:
-            handle = identifier[7:]  # Remove "handle:" prefix
-        elif is_id:
-            channel_id = identifier[3:]  # Remove "id:" prefix
-        else:
-            # For backward compatibility, assume it's an ID if no prefix
-            channel_id = identifier
-            is_id = True
-        
         # Get channel info from YouTube API
         try:
-            if is_handle:
+            if type == "handle":
                 # Get channel by handle
-                channel_list = youtube.get_channel_by_handle(handle)
+                channel_list = youtube.get_channel_by_handle(identifier)
             else:
                 # Get channel by ID
-                channel_list = youtube.get_channel(channel_id)
+                channel_list = youtube.get_channel(identifier)
 
             if "items" not in channel_list or len(channel_list["items"]) == 0:
-                await ctx.send("Kanavaa ei löytynyt YouTube API:sta.")
+                await interaction.response.send_message("Kanavaa ei löytynyt YouTube API:sta.", ephemeral=True)
                 return
 
             channel_id = channel_list["items"][0]["id"]
@@ -92,25 +90,26 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
 
             # Check if channel already exists
             if apinaDB.channel_exists(channel_id):
-                await ctx.send("Kanava on jo listalla!")
+                await interaction.response.send_message("Kanava on jo listalla!", ephemeral=True)
                 return
 
             # Add channel to database
             apinaDB.add_channel(channel_id, channel_name, upload_playlist_id)
-            await ctx.send("Kanava lisätty: %s (%s)" % (channel_name, channel_id))
+            await interaction.response.send_message("Kanava lisätty: %s (%s)" % (channel_name, channel_id))
         except Exception as e:
-            await ctx.send("Virhe kanavan lisäämisessä: %s" % (str(e)))
+            await interaction.response.send_message("Virhe kanavan lisäämisessä: %s" % (str(e)), ephemeral=True)
 
-    @commands.command(name="remove")
-    @commands.has_permissions(manage_guild=True)
-    async def remove(self, ctx, channel_id: str = None):
+    @app_commands.command(name="apina-remove", description="Poistaa YouTube-kanavan listalta")
+    @app_commands.describe(channel_id="YouTube-kanavan ID")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def remove(self, interaction: discord.Interaction, channel_id: str):
         if not channel_id:
-            await ctx.send("Käyttö: `+remove <YouTube-kanavan ID>`")
+            await interaction.response.send_message("Anna kanavan ID.", ephemeral=True)
             return
 
         # Check if channel exists
         if not apinaDB.channel_exists(channel_id):
-            await ctx.send("Kanavaa ei löytynyt listalta!")
+            await interaction.response.send_message("Kanavaa ei löytynyt listalta!", ephemeral=True)
             return
 
         # Get channel name before removing
@@ -124,11 +123,11 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
         # Remove channel from database
         if apinaDB.remove_channel(channel_id):
             if channel_name:
-                await ctx.send("Kanava poistettu: %s" % (channel_name))
+                await interaction.response.send_message("Kanava poistettu: %s" % (channel_name))
             else:
-                await ctx.send("Kanava poistettu: %s" % (channel_id))
+                await interaction.response.send_message("Kanava poistettu: %s" % (channel_id))
         else:
-            await ctx.send("Virhe kanavan poistamisessa.")
+            await interaction.response.send_message("Virhe kanavan poistamisessa.", ephemeral=True)
 
     @tasks.loop(seconds = 900) # 15 mins, 900 seconds
     async def check_for_new_videos(self):
@@ -154,5 +153,22 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
             print("Connection to Discord is down. Retrying soon...")
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(ApinaCommands(bot))
+    cog = ApinaCommands(bot)
+    await bot.add_cog(cog)
+    # Register slash commands with the bot's command tree
+    # Remove existing commands first to avoid duplicates on reload
+    # Remove both old and new command names
+    old_command_names = ["apinahelp", "list", "add", "remove"]
+    new_command_names = ["apina-help", "apina-list", "apina-add", "apina-remove"]
+    for cmd_name in old_command_names + new_command_names:
+        try:
+            bot.tree.remove_command(cmd_name)
+        except:
+            pass
+    
+    # Add commands from the cog
+    bot.tree.add_command(cog.help)
+    bot.tree.add_command(cog.list)
+    bot.tree.add_command(cog.add)
+    bot.tree.add_command(cog.remove)
 
