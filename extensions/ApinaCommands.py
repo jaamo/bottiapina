@@ -27,8 +27,8 @@ class ApinaCommands(commands.Cog):
         self.check_for_new_videos.cancel()
         print("Unload bot")
 
-    @app_commands.command(name="apina-help", description="Näyttää kaikki käytettävissä olevat komennot")
-    async def help(self, interaction: discord.Interaction):
+    @commands.command(name="apina-help")
+    async def help(self, ctx):
         help_text = """**Bottiapina - Käytettävissä olevat komennot:**
 
 `/apina-list` - Näyttää listan kaikista seuratuista YouTube-kanavista
@@ -42,8 +42,8 @@ class ApinaCommands(commands.Cog):
 Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita."""
         await interaction.response.send_message(help_text)
 
-    @app_commands.command(name="apina-list", description="Näyttää listan kaikista seuratuista YouTube-kanavista")
-    async def list(self, interaction: discord.Interaction):
+    @commands.command(name="apina-list")
+    async def list(self, ctx):
         channel_list = []
         channels = apinaDB.get_channels()
         for channel in channels:
@@ -56,17 +56,9 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
         else:
             await interaction.response.send_message('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
 
-    @app_commands.command(name="apina-add", description="Lisää YouTube-kanavan listalle")
-    @app_commands.describe(
-        type="Valitse onko kyseessä handle vai ID",
-        identifier="Kanavan handle (esim. kampiapina) tai ID (esim. UC2Prp3t7Ol-a041FXTyCzNQ)"
-    )
-    @app_commands.choices(type=[
-        app_commands.Choice(name="Handle", value="handle"),
-        app_commands.Choice(name="ID", value="id")
-    ])
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def add(self, interaction: discord.Interaction, type: str, identifier: str):
+    @commands.command(name="apina-add")
+    @commands.has_permissions(manage_guild=True)
+    async def add(self, ctx, identifier: str = None):
         if not identifier:
             await interaction.response.send_message("Anna kanavan handle tai ID.", ephemeral=True)
             return
@@ -99,10 +91,9 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
         except Exception as e:
             await interaction.response.send_message("Virhe kanavan lisäämisessä: %s" % (str(e)), ephemeral=True)
 
-    @app_commands.command(name="apina-remove", description="Poistaa YouTube-kanavan listalta")
-    @app_commands.describe(channel_id="YouTube-kanavan ID")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def remove(self, interaction: discord.Interaction, channel_id: str):
+    @commands.command(name="apina-remove")
+    @commands.has_permissions(manage_guild=True)
+    async def remove(self, ctx, channel_id: str = None):
         if not channel_id:
             await interaction.response.send_message("Anna kanavan ID.", ephemeral=True)
             return
