@@ -73,7 +73,8 @@ Reduce the time in extensions/ApinaCommands.py
 
 ## Production deployment :D
 
-`rsync ./*.py pi@192.168.1.75:/home/pi/bottiapina/`
+`rsync ./*.py pi@192.168.1.75:/home/pi/bottiapina/`  
+`rsync -rav ./extensions/*.py pi@192.168.1.75:/home/pi/bottiapina/extensions/`
 
 ## Related documentation:
 
