@@ -9,6 +9,17 @@ This bot monitors given YouTube channels and posts a notification to Discord cha
 - google-auth-oauthlib
 - google-auth-httplib2
 
+## Setting up python
+
+Production server uses Python 3.11.2. To use the same version locally install it:
+
+`pyenv install 3.11.2`
+
+Create venv environment inside project folder:
+
+`~/.pyenv/versions/3.11.2/bin/python3.11 -m venv .venv`
+
+
 ## Installation
 
 1. Clone this repo
@@ -19,7 +30,7 @@ This bot monitors given YouTube channels and posts a notification to Discord cha
 1. Use this site to obtain YouTube channel id https://commentpicker.com/youtube-channel-id.php
 1. Copy .env.example to .env and fill in Discord and YouTube parameters
 1. Run `source .venv/bin/activate` if you are using venv
-1. Install dependencies: `pip install discord.py google-api-python-client google-auth-oauthlib google-auth-httplib2 python-dotenv`
+1. Install dependencies: `pip install -r requirements.txt`
 1. Setup database: `python bottiapina-cli.py db-reset`
 1. Add YouTube channels: `python bottiapina-cli.py db-add-channel [channel id]`
 1. Start the bot: `python bottiapina.py`
@@ -35,6 +46,11 @@ CLI usage:
 To see available commands:
 
 `python bottiapina-cli.py`
+
+## Debugging tips
+
+New content is checked every 15 minutes.  
+Reduce the time in extensions/ApinaCommands.py
 
 ## Production deployment :D
 
@@ -81,5 +97,5 @@ python3 bottiapina-cli.py db-add-channel UClGzNxV6GrPi4NyYvoEgZDw # Puhutaan py�
 python3 bottiapina-cli.py db-add-channel UCav1yoInd0IJ5wcNxkrd6PQ # Pyöräily, retkeily, elämä
 python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus
 python3 bottiapina-cli.py db-add-channel UClW8fnS0yeCMGEjCKd7OlHg # pekka tahkola 
-python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�
+python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�
 python3 bottiapina-cli.py db-add-channel UCzEv8zvMz9LMKBajhzhBEyA # mika kimmo
