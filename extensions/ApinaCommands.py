@@ -3,7 +3,6 @@ import json
 import threading
 
 import discord
-from discord import app_commands
 from discord.ext import tasks, commands
 from dotenv import load_dotenv
 
@@ -27,20 +26,21 @@ class ApinaCommands(commands.Cog):
         self.check_for_new_videos.cancel()
         print("Unload bot")
 
-    @commands.command(name="apina-help")
+    @commands.command(name="apinahelp")
     async def help(self, ctx):
         help_text = """**Bottiapina - Käytettävissä olevat komennot:**
 
-`/apina-list` - Näyttää listan kaikista seuratuista YouTube-kanavista
+`+apina-list` - Näyttää listan kaikista seuratuista YouTube-kanavista
 
-`/apina-add` - Lisää kanavan handlella tai ID:llä
+`+apina-add handle:channelname` - Lisää kanavan handlella (esim. `+apina-add handle:kampiapina`)
+`+apina-add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Lisää kanavan ID:llä
 *Vain moderaattorit voivat käyttää*
 
-`/apina-remove` - Poistaa kanavan listalta
+`+apina-remove <channel_id>` - Poistaa kanavan listalta
 *Vain moderaattorit voivat käyttää*
 
 Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita."""
-        await interaction.response.send_message(help_text)
+        await ctx.send(help_text)
 
     @commands.command(name="apina-list")
     async def list(self, ctx):
@@ -50,30 +50,40 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
             channel_id = channel[0]
             channel_name = channel[1]
             channel_list.append("%s (%s)" % (channel_name, channel_id))
-        
-        if not channel_list:
-            await interaction.response.send_message("Ei seurattuja kanavia.")
-        else:
-            await interaction.response.send_message('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
+        await ctx.send('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
 
     @commands.command(name="apina-add")
     @commands.has_permissions(manage_guild=True)
     async def add(self, ctx, identifier: str = None):
         if not identifier:
-            await interaction.response.send_message("Anna kanavan handle tai ID.", ephemeral=True)
+            await ctx.send("Käyttö: `+add handle:channelname` tai `+add id:UC2Prp3t7Ol-a041FXTyCzNQ`")
             return
 
+        # Detect if identifier is a handle (starts with handle:) or an ID (starts with id:)
+        is_handle = identifier.startswith('handle:')
+        is_id = identifier.startswith('id:')
+        
+        # Extract the actual identifier
+        if is_handle:
+            handle = identifier[7:]  # Remove "handle:" prefix
+        elif is_id:
+            channel_id = identifier[3:]  # Remove "id:" prefix
+        else:
+            # For backward compatibility, assume it's an ID if no prefix
+            channel_id = identifier
+            is_id = True
+        
         # Get channel info from YouTube API
         try:
-            if type == "handle":
+            if is_handle:
                 # Get channel by handle
-                channel_list = youtube.get_channel_by_handle(identifier)
+                channel_list = youtube.get_channel_by_handle(handle)
             else:
                 # Get channel by ID
-                channel_list = youtube.get_channel(identifier)
+                channel_list = youtube.get_channel(channel_id)
 
             if "items" not in channel_list or len(channel_list["items"]) == 0:
-                await interaction.response.send_message("Kanavaa ei löytynyt YouTube API:sta.", ephemeral=True)
+                await ctx.send("Kanavaa ei löytynyt YouTube API:sta.")
                 return
 
             channel_id = channel_list["items"][0]["id"]
@@ -82,25 +92,25 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
 
             # Check if channel already exists
             if apinaDB.channel_exists(channel_id):
-                await interaction.response.send_message("Kanava on jo listalla!", ephemeral=True)
+                await ctx.send("Kanava on jo listalla!")
                 return
 
             # Add channel to database
             apinaDB.add_channel(channel_id, channel_name, upload_playlist_id)
-            await interaction.response.send_message("Kanava lisätty: %s (%s)" % (channel_name, channel_id))
+            await ctx.send("Kanava lisätty: %s (%s)" % (channel_name, channel_id))
         except Exception as e:
-            await interaction.response.send_message("Virhe kanavan lisäämisessä: %s" % (str(e)), ephemeral=True)
+            await ctx.send("Virhe kanavan lisäämisessä: %s" % (str(e)))
 
     @commands.command(name="apina-remove")
     @commands.has_permissions(manage_guild=True)
     async def remove(self, ctx, channel_id: str = None):
         if not channel_id:
-            await interaction.response.send_message("Anna kanavan ID.", ephemeral=True)
+            await ctx.send("Käyttö: `+remove <YouTube-kanavan ID>`")
             return
 
         # Check if channel exists
         if not apinaDB.channel_exists(channel_id):
-            await interaction.response.send_message("Kanavaa ei löytynyt listalta!", ephemeral=True)
+            await ctx.send("Kanavaa ei löytynyt listalta!")
             return
 
         # Get channel name before removing
@@ -114,11 +124,11 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
         # Remove channel from database
         if apinaDB.remove_channel(channel_id):
             if channel_name:
-                await interaction.response.send_message("Kanava poistettu: %s" % (channel_name))
+                await ctx.send("Kanava poistettu: %s" % (channel_name))
             else:
-                await interaction.response.send_message("Kanava poistettu: %s" % (channel_id))
+                await ctx.send("Kanava poistettu: %s" % (channel_id))
         else:
-            await interaction.response.send_message("Virhe kanavan poistamisessa.", ephemeral=True)
+            await ctx.send("Virhe kanavan poistamisessa.")
 
     @tasks.loop(seconds = 900) # 15 mins, 900 seconds
     async def check_for_new_videos(self):
@@ -144,22 +154,5 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
             print("Connection to Discord is down. Retrying soon...")
 
 async def setup(bot: commands.Bot):
-    cog = ApinaCommands(bot)
-    await bot.add_cog(cog)
-    # Register slash commands with the bot's command tree
-    # Remove existing commands first to avoid duplicates on reload
-    # Remove both old and new command names
-    old_command_names = ["apinahelp", "list", "add", "remove"]
-    new_command_names = ["apina-help", "apina-list", "apina-add", "apina-remove"]
-    for cmd_name in old_command_names + new_command_names:
-        try:
-            bot.tree.remove_command(cmd_name)
-        except:
-            pass
-    
-    # Add commands from the cog
-    bot.tree.add_command(cog.help)
-    bot.tree.add_command(cog.list)
-    bot.tree.add_command(cog.add)
-    bot.tree.add_command(cog.remove)
+    await bot.add_cog(ApinaCommands(bot))
 
