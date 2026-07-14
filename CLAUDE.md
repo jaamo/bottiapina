@@ -51,7 +51,7 @@ to exercise the YouTube path. Use `db-reset` + a single test channel when iterat
 
 Copy `.env.example` to `.env` and fill in:
 `DISCORD_TOKEN`, `DISCORD_GUILD`, `DISCORD_CHANNEL` (numeric channel ID the bot posts to),
-`YOUTUBE_APY_KEY` (note the misspelling — it must match the code in `youtube.py`).
+`YOUTUBE_API_KEY`.
 `.env` and `*.db` are gitignored.
 
 ## Discord commands (prefix `+`)

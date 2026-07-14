@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
 
 load_dotenv()
-YOUTUBE_APY_KEY = os.getenv('YOUTUBE_APY_KEY')
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 
 # Manage YouTube API queries.
 class YouTube:
@@ -19,7 +19,7 @@ class YouTube:
 
     def __init__(self):
         self.youtube = googleapiclient.discovery.build(
-            self.api_service_name, self.api_version, developerKey=YOUTUBE_APY_KEY)
+            self.api_service_name, self.api_version, developerKey=YOUTUBE_API_KEY)
 
     def get_channel(self, channel_id):
         request = self.youtube.channels().list(
