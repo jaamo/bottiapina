@@ -1,6 +1,7 @@
 import os
 import json
 
+import requests
 import googleapiclient.discovery
 import googleapiclient.errors
 from dotenv import load_dotenv
@@ -44,6 +45,23 @@ class YouTube:
         )
         latest_upload = request.execute()
         return latest_upload['items'][0]['id']
+
+    def is_short(self, video_id):
+        # The YouTube API has no flag identifying Shorts. Heuristic: the
+        # /shorts/<id> URL returns HTTP 200 for a real Short, but redirects
+        # (3xx) to the normal watch page for a regular (long) video.
+        # On any error we assume it is NOT a Short so real videos are never
+        # silently suppressed.
+        try:
+            response = requests.get(
+                "https://www.youtube.com/shorts/%s" % (video_id),
+                allow_redirects=False,
+                timeout=10,
+            )
+            return response.status_code == 200
+        except Exception:
+            print("Short check failed for %s, assuming not a short." % (video_id))
+            return False
 
     def get_latest_upload(self, playlist_id):
         request = self.youtube.playlistItems().list(
