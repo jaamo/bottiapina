@@ -73,11 +73,17 @@ Reduce the time in extensions/ApinaCommands.py
 
 ## Production deployment :D
 
-`rsync ./*.py pi@192.168.1.75:/home/pi/bottiapina/`  
-`rsync -rav ./extensions/*.py pi@192.168.1.75:/home/pi/bottiapina/extensions/`
+Deploy the Python source to the Raspberry Pi (does not touch the remote database or `.env`):
 
-Backup database:
-`rsync pi@192.168.1.75:/home/pi/bottiapina/bottiapina.db .`
+`./deploy.sh`
+
+Then restart the bot on the server.
+
+Back up the production database to this folder:
+
+`./backup.sh`
+
+Both scripts target `pi@192.168.1.75:/home/pi/bottiapina/`; edit the `REMOTE`/`REMOTE_DIR` variables at the top of the scripts to change the destination.
 
 ## Related documentation:
 
