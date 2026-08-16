@@ -72,11 +72,12 @@ def member_label(guild, author_id, stored_name):
     return stored_name or str(author_id)
 
 
-# List of threads with a message in the last ACTIVE_THREAD_DAYS days.
-async def collect_active_threads(guild, now=None):
+# List of threads with a message in the last ACTIVE_THREAD_DAYS days. `ignore`
+# is a threads.parse_ignore_list() pair of parent channels to leave out.
+async def collect_active_threads(guild, now=None, ignore=None):
     now = now or datetime.datetime.now(datetime.timezone.utc)
     since = now - datetime.timedelta(days=ACTIVE_THREAD_DAYS)
-    return await find_recent_threads(guild, since), since
+    return await find_recent_threads(guild, since, ignore), since
 
 
 def build_threads_embed(threads, guild, now=None, counts=None):
@@ -138,10 +139,10 @@ def build_stats_embed(apinaDB, guild, now=None):
 
 
 # Build both embeds of the daily report.
-async def build_report(apinaDB, guild, now=None):
+async def build_report(apinaDB, guild, now=None, ignore=None):
     now = now or now_local()
     now_utc = now.astimezone(datetime.timezone.utc)
-    threads, since = await collect_active_threads(guild, now_utc)
+    threads, since = await collect_active_threads(guild, now_utc, ignore)
     counts = apinaDB.message_counts_by_channel(utc_str(since), utc_str(now_utc))
     return [
         build_threads_embed(threads, guild, now_utc, counts),

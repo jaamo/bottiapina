@@ -43,6 +43,22 @@ Create venv environment inside project folder:
 `DISCORD_CHANNEL` is the channel new videos are posted to. `DISCORD_STATS_CHANNEL` is the
 channel the daily report goes to; leave it empty to use `DISCORD_CHANNEL` for both.
 
+`DISCORD_IGNORED_CHANNELS` leaves the threads of some channels out of the report:
+
+```
+DISCORD_IGNORED_CHANNELS=1003714240118530048,1234567890123456789
+```
+
+Comma separated. **Use channel ids** - a channel can be renamed and two channels in different
+categories can share a name, and either would silently break a name based filter. Names are
+accepted too if you prefer a readable config (`#botit,#spam`, the `#` is optional, case does
+not matter). The bot prints the list it parsed on startup. This only hides threads from the
+report; the statistics still count those channels.
+
+**`.env` is not deployed.** `deploy.sh` only syncs Python source, so a new variable has to be
+added to `/home/pi/bottiapina/.env` on the Pi by hand. Forgetting `DISCORD_STATS_CHANNEL`
+there silently sends the report to `DISCORD_CHANNEL` instead.
+
 The bot needs *View Channel* and *Read Message History* on every channel that should show up
 in the report. Private archived threads are skipped; including them would additionally
 require *Manage Threads*.
@@ -68,7 +84,7 @@ The bot responds to commands with the `+` prefix. Available commands:
 - `+apina-add handle:channelname` - Adds a channel by handle (e.g. `+apina-add handle:kampiapina`)
 - `+apina-add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Adds a channel by YouTube channel ID
 - `+apina-remove <channel_id>` - Removes a channel from the list
-- `+apina-raportti` - Posts the daily thread and statistics report immediately
+- `+apina-raportti` (alias `+apina-tilastot`) - Posts the daily thread and statistics report immediately
 
 **Note:** The `+apina-add`, `+apina-remove` and `+apina-raportti` commands require moderator
 permissions (manage_guild permission).
@@ -160,19 +176,11 @@ python3 bottiapina-cli.py db-add-channel UC51syC8PWYK7XQ9yin_96fA # activelifein
 python3 bottiapina-cli.py db-add-channel UCd6k7GfrOpLlFabSplva7OA # saukki  
 python3 bottiapina-cli.py db-add-channel UClGzNxV6GrPi4NyYvoEgZDw # Puhutaan pyöräilystä  
 python3 bottiapina-cli.py db-add-channel UCav1yoInd0IJ5wcNxkrd6PQ # Pyöräily, retkeily, elämä
-<<<<<<< HEAD
 python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus  
 python3 bottiapina-cli.py db-add-channel UClW8fnS0yeCMGEjCKd7OlHg # pekka tahkola  
-python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�  
+python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�  
 python3 bottiapina-cli.py db-add-channel UCzEv8zvMz9LMKBajhzhBEyA # mika kimmo  
 python3 bottiapina-cli.py db-add-channel UCl21-3ne4qVuePHPTx5LEbQ # fillaribobi
 python3 bottiapina-cli.py db-add-channel UCOkR8nsa6yVPf0NpM2VgUJA # paikallinen_grvl  
 python3 bottiapina-cli.py db-add-channel UCDVk24pXWVHzsMDGC8lyJeg # klasumenee  
 python3 bottiapina-cli.py db-add-channel UCCL1-1ovT_HiQfLiFgu-Bjg # markuskiili  
-
-=======
-python3 bottiapina-cli.py db-add-channel UCh2dBsBDCgoK8Lfn7xuIENg # Iskus
-python3 bottiapina-cli.py db-add-channel UClW8fnS0yeCMGEjCKd7OlHg # pekka tahkola 
-python3 bottiapina-cli.py db-add-channel UCcm-lEm1Oh72LXh_HIuRsoQ # tero niemel�
-python3 bottiapina-cli.py db-add-channel UCzEv8zvMz9LMKBajhzhBEyA # mika kimmo
->>>>>>> f3997d819a4a8130f0060b9a4ad5e77c72b53b74

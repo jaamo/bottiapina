@@ -73,7 +73,11 @@ iterating.
 Copy `.env.example` to `.env` and fill in:
 `DISCORD_TOKEN`, `DISCORD_GUILD`, `DISCORD_CHANNEL` (numeric channel ID the bot posts to),
 `DISCORD_STATS_CHANNEL` (daily report target; falls back to `DISCORD_CHANNEL`),
-`YOUTUBE_API_KEY`.
+`DISCORD_IGNORED_CHANNELS` (comma separated ids or names whose threads are hidden from the
+report — statistics still count them), `YOUTUBE_API_KEY`.
+
+`deploy.sh` does **not** sync `.env`. Any new variable must be added to the Pi's
+`/home/pi/bottiapina/.env` by hand, or the fallback silently kicks in.
 `.env` and `*.db` are gitignored.
 
 ## Discord commands (prefix `+`)

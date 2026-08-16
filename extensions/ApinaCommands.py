@@ -12,10 +12,15 @@ from youtube import YouTube
 
 from functions import check_for_new_videos
 import stats
+import threads as thread_tools
 
 DISCORD_CHANNEL = os.getenv('DISCORD_CHANNEL')
 # Daily report goes to its own channel, falling back to the video channel.
 DISCORD_STATS_CHANNEL = os.getenv('DISCORD_STATS_CHANNEL') or DISCORD_CHANNEL
+
+# Channels whose threads are left out of the report. Comma separated ids
+# (preferred) or names. Statistics still count these channels.
+IGNORED_CHANNELS = thread_tools.parse_ignore_list(os.getenv('DISCORD_IGNORED_CHANNELS'))
 
 # When the daily report is posted, Finnish time.
 REPORT_TIME = datetime.time(hour=9, minute=0, tzinfo=stats.TIMEZONE)
@@ -32,6 +37,10 @@ class ApinaCommands(commands.Cog):
         self.check_for_new_videos.start()
         self.daily_report.start()
         print("Initialize bot")
+        ignored_ids, ignored_names = IGNORED_CHANNELS
+        if ignored_ids or ignored_names:
+            print("Ignoring threads from: %s" % (
+                ", ".join(sorted(str(i) for i in ignored_ids) + sorted("#%s" % (n) for n in ignored_names))))
 
     def cog_unload(self):
         self.check_for_new_videos.cancel()
@@ -74,7 +83,7 @@ class ApinaCommands(commands.Cog):
 `+apina-remove <channel_id>` - Poistaa kanavan listalta
 *Vain moderaattorit voivat käyttää*
 
-`+apina-raportti` - Lähettää päivittäisen ketju- ja tilastoraportin heti
+`+apina-raportti` (tai `+apina-tilastot`) - Lähettää päivittäisen ketju- ja tilastoraportin heti
 *Vain moderaattorit voivat käyttää*
 
 Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita.
@@ -192,20 +201,33 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
         else:
             print("Connection to Discord is down. Retrying soon...")
 
-    # Build the report and post it to the stats channel.
+    # Build the report and post it to the stats channel as a normal message.
+    # Returns the channel it posted to, or None.
     async def post_report(self):
         if not DISCORD_STATS_CHANNEL:
             print("No stats channel configured, skipping report.")
-            return False
+            return None
         channel = self.bot.get_channel(int(DISCORD_STATS_CHANNEL))
         if not channel:
             print("Stats channel %s not found. Retrying later..." % (DISCORD_STATS_CHANNEL))
-            return False
+            return None
 
-        embeds = await stats.build_report(apinaDB, channel.guild)
+        # bot.get_channel() resolves thread ids too, and posting into a thread
+        # buries the report. The report belongs in the channel itself, so step
+        # up to the parent when the configured id turns out to be a thread.
+        if isinstance(channel, discord.Thread):
+            parent = channel.parent
+            if not parent:
+                print("Stats channel %s is a thread with no reachable parent." % (DISCORD_STATS_CHANNEL))
+                return False
+            print("Stats channel %s is a thread, posting to #%s instead." % (DISCORD_STATS_CHANNEL, parent.name))
+            channel = parent
+
+        print("Posting report to #%s (%s)." % (channel.name, channel.id))
+        embeds = await stats.build_report(apinaDB, channel.guild, ignore=IGNORED_CHANNELS)
         for embed in embeds:
             await channel.send(embed=embed)
-        return True
+        return channel
 
     @tasks.loop(time=REPORT_TIME)
     async def daily_report(self):
@@ -235,15 +257,22 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
     async def before_daily_report(self):
         await self.bot.wait_until_ready()
 
-    @commands.command(name="apina-raportti")
+    @commands.command(name="apina-raportti", aliases=["apina-tilastot"])
     @commands.has_permissions(manage_guild=True)
     async def report(self, ctx):
         await ctx.send("Kootaan raporttia...")
         try:
-            if not await self.post_report():
-                await ctx.send("Tilastokanavaa ei löytynyt.")
+            channel = await self.post_report()
         except Exception as e:
             await ctx.send("Virhe raportin koostamisessa: %s" % (str(e)))
+            return
+
+        # Say where it went: the report goes to DISCORD_STATS_CHANNEL, which is
+        # rarely the channel the command was typed in.
+        if not channel:
+            await ctx.send("Tilastokanavaa ei löytynyt. Tarkista DISCORD_STATS_CHANNEL.")
+        elif channel.id != ctx.channel.id:
+            await ctx.send("Raportti lähetetty kanavalle #%s." % (channel.name))
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ApinaCommands(bot))
