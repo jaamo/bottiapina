@@ -1,0 +1,149 @@
+import datetime
+from zoneinfo import ZoneInfo
+
+import discord
+
+from threads import find_recent_threads, last_activity
+
+# All day boundaries are local Finnish days, not UTC days.
+TIMEZONE = ZoneInfo("Europe/Helsinki")
+
+# A thread counts as active when it has had a message within this many days.
+ACTIVE_THREAD_DAYS = 7
+
+# Discord embed descriptions max out at 4096 characters, so cap the list.
+MAX_THREADS_LISTED = 25
+
+# How many entries per statistic.
+TOP_N = 3
+
+EMBED_COLOR = 0x00A86B
+
+
+def now_local():
+    return datetime.datetime.now(TIMEZONE)
+
+
+# Format an aware datetime the way the message table stores it.
+def utc_str(dt):
+    return dt.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+
+# The three reporting windows, as (label, start_utc, end_utc). All of them end
+# at local midnight today, so "yesterday" is the last complete calendar day.
+def windows(now=None):
+    now = now or now_local()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return [
+        ("Eilen", today - datetime.timedelta(days=1), today),
+        ("Viimeiset 7 päivää", today - datetime.timedelta(days=7), today),
+        ("Viimeiset 30 päivää", today - datetime.timedelta(days=30), today),
+    ]
+
+
+def plural_messages(count):
+    return "%d viesti" % (count) if count == 1 else "%d viestiä" % (count)
+
+
+# Finnish, human readable "how long ago".
+def format_ago(then, now=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    days = (now.astimezone(TIMEZONE).date() - then.astimezone(TIMEZONE).date()).days
+    if days <= 0:
+        return "tänään"
+    if days == 1:
+        return "eilen"
+    return "%d pv sitten" % (days)
+
+
+# Prefer the live name from Discord, fall back to the snapshot stored when the
+# message was logged (the channel or member may be gone).
+def channel_label(guild, channel_id, stored_name):
+    channel = guild.get_channel_or_thread(channel_id) if guild else None
+    if channel:
+        return "#%s" % (channel.name)
+    return "#%s" % (stored_name or channel_id)
+
+
+def member_label(guild, author_id, stored_name):
+    member = guild.get_member(author_id) if guild else None
+    if member:
+        return member.display_name
+    return stored_name or str(author_id)
+
+
+# List of threads with a message in the last ACTIVE_THREAD_DAYS days.
+async def collect_active_threads(guild, now=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    since = now - datetime.timedelta(days=ACTIVE_THREAD_DAYS)
+    return await find_recent_threads(guild, since), since
+
+
+def build_threads_embed(threads, guild, now=None, counts=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    counts = counts or {}
+    embed = discord.Embed(
+        title="🧵 Aktiiviset ketjut (%d pv)" % (ACTIVE_THREAD_DAYS),
+        color=EMBED_COLOR,
+    )
+
+    if not threads:
+        embed.description = "Yhtään ketjua ei ole herätelty viime päivinä. Hiljaista kuin metsässä."
+        return embed
+
+    lines = []
+    for thread in threads[:MAX_THREADS_LISTED]:
+        parent = guild.get_channel(thread.parent_id) if guild else None
+        parts = ["#%s" % (parent.name)] if parent else []
+        # Counts come from our own message log, so they only cover the reporting
+        # window. Left out when we have nothing logged for the thread.
+        if counts.get(thread.id):
+            parts.append(plural_messages(counts[thread.id]))
+        parts.append(format_ago(last_activity(thread), now))
+        if thread.archived:
+            parts.append("arkistoitu")
+        lines.append("• [%s](%s) — %s" % (thread.name, thread.jump_url, " · ".join(parts)))
+
+    if len(threads) > MAX_THREADS_LISTED:
+        lines.append("…ja %d muuta ketjua." % (len(threads) - MAX_THREADS_LISTED))
+
+    embed.description = "\n".join(lines)
+    return embed
+
+
+def build_stats_embed(apinaDB, guild, now=None):
+    now = now or now_local()
+    embed = discord.Embed(title="📊 Tilastot", color=EMBED_COLOR)
+
+    for label, start, end in windows(now):
+        start_utc, end_utc = utc_str(start), utc_str(end)
+        total = apinaDB.message_count(start_utc, end_utc)
+
+        if not total:
+            embed.add_field(name=label, value="Ei viestejä.", inline=False)
+            continue
+
+        rows = ["**Kanavat**"]
+        for channel_id, count, name in apinaDB.top_channels(start_utc, end_utc, TOP_N):
+            rows.append("%s — %s" % (channel_label(guild, channel_id, name), plural_messages(count)))
+
+        rows.append("**Jäsenet**")
+        for author_id, count, name in apinaDB.top_members(start_utc, end_utc, TOP_N):
+            rows.append("%s — %s" % (member_label(guild, author_id, name), plural_messages(count)))
+
+        rows.append("Yhteensä %s." % (plural_messages(total)))
+        embed.add_field(name=label, value="\n".join(rows), inline=False)
+
+    return embed
+
+
+# Build both embeds of the daily report.
+async def build_report(apinaDB, guild, now=None):
+    now = now or now_local()
+    now_utc = now.astimezone(datetime.timezone.utc)
+    threads, since = await collect_active_threads(guild, now_utc)
+    counts = apinaDB.message_counts_by_channel(utc_str(since), utc_str(now_utc))
+    return [
+        build_threads_embed(threads, guild, now_utc, counts),
+        build_stats_embed(apinaDB, guild, now),
+    ]

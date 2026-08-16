@@ -1,3 +1,4 @@
+import datetime
 import os
 import json
 import threading
@@ -10,8 +11,17 @@ from apinadb import ApinaDB
 from youtube import YouTube
 
 from functions import check_for_new_videos
+import stats
 
 DISCORD_CHANNEL = os.getenv('DISCORD_CHANNEL')
+# Daily report goes to its own channel, falling back to the video channel.
+DISCORD_STATS_CHANNEL = os.getenv('DISCORD_STATS_CHANNEL') or DISCORD_CHANNEL
+
+# When the daily report is posted, Finnish time.
+REPORT_TIME = datetime.time(hour=9, minute=0, tzinfo=stats.TIMEZONE)
+
+# How long message rows are kept.
+RETENTION_DAYS = 90
 
 apinaDB = ApinaDB()
 youtube = YouTube()
@@ -20,11 +30,36 @@ class ApinaCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.check_for_new_videos.start()
+        self.daily_report.start()
         print("Initialize bot")
 
     def cog_unload(self):
         self.check_for_new_videos.cancel()
+        self.daily_report.cancel()
         print("Unload bot")
+
+    # Record message metadata for the statistics. No message content is stored.
+    # This is a cog listener, not an on_message override, so it does not
+    # interfere with command processing.
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.guild is None:
+            return
+        is_thread = isinstance(message.channel, discord.Thread)
+        try:
+            apinaDB.log_message(
+                message.id,
+                message.channel.id,
+                message.channel.parent_id if is_thread else None,
+                is_thread,
+                message.author.id,
+                message.author.display_name,
+                message.channel.name,
+                message.author.bot,
+                message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            )
+        except Exception as e:
+            print("Failed to log message %s: %s" % (message.id, e))
 
     @commands.command(name="apinahelp")
     async def help(self, ctx):
@@ -39,7 +74,11 @@ class ApinaCommands(commands.Cog):
 `+apina-remove <channel_id>` - Poistaa kanavan listalta
 *Vain moderaattorit voivat käyttää*
 
-Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita."""
+`+apina-raportti` - Lähettää päivittäisen ketju- ja tilastoraportin heti
+*Vain moderaattorit voivat käyttää*
+
+Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita.
+Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
         await ctx.send(help_text)
 
     @commands.command(name="apina-list")
@@ -152,6 +191,59 @@ Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat 
                 )
         else:
             print("Connection to Discord is down. Retrying soon...")
+
+    # Build the report and post it to the stats channel.
+    async def post_report(self):
+        if not DISCORD_STATS_CHANNEL:
+            print("No stats channel configured, skipping report.")
+            return False
+        channel = self.bot.get_channel(int(DISCORD_STATS_CHANNEL))
+        if not channel:
+            print("Stats channel %s not found. Retrying later..." % (DISCORD_STATS_CHANNEL))
+            return False
+
+        embeds = await stats.build_report(apinaDB, channel.guild)
+        for embed in embeds:
+            await channel.send(embed=embed)
+        return True
+
+    @tasks.loop(time=REPORT_TIME)
+    async def daily_report(self):
+        # The loop only fires once a day, but a restart close to REPORT_TIME
+        # could fire it again. One report per day, no matter what.
+        today = stats.now_local().strftime('%Y-%m-%d')
+        if apinaDB.get_state('last_daily_report_date') == today:
+            print("Daily report already posted for %s." % (today))
+            return
+
+        print("Posting daily report for %s." % (today))
+        try:
+            if not await self.post_report():
+                return
+        except Exception as e:
+            print("Failed to post daily report: %s" % (e))
+            return
+
+        apinaDB.set_state('last_daily_report_date', today)
+
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=RETENTION_DAYS)
+        removed = apinaDB.prune_messages(stats.utc_str(cutoff))
+        if removed > 0:
+            print("Pruned %d message rows older than %d days." % (removed, RETENTION_DAYS))
+
+    @daily_report.before_loop
+    async def before_daily_report(self):
+        await self.bot.wait_until_ready()
+
+    @commands.command(name="apina-raportti")
+    @commands.has_permissions(manage_guild=True)
+    async def report(self, ctx):
+        await ctx.send("Kootaan raporttia...")
+        try:
+            if not await self.post_report():
+                await ctx.send("Tilastokanavaa ei löytynyt.")
+        except Exception as e:
+            await ctx.send("Virhe raportin koostamisessa: %s" % (str(e)))
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ApinaCommands(bot))

@@ -8,6 +8,8 @@ REMOTE_DIR="/home/pi/bottiapina"
 cd "$(dirname "$0")"
 
 echo "Backing up bottiapina.db from ${REMOTE} ..."
-rsync -av "${REMOTE}:${REMOTE_DIR}/bottiapina.db" .
+# The database runs in WAL mode, so recent commits may still live in the
+# bottiapina.db-wal file. The glob picks those up too when they exist.
+rsync -av "${REMOTE}:${REMOTE_DIR}/bottiapina.db*" .
 
 echo "Done. Saved to ./bottiapina.db"

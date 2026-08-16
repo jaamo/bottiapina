@@ -2,6 +2,10 @@
 
 This bot monitors given YouTube channels and posts a notification to Discord channel when new videos are published.
 
+It also posts a daily report at 09:00 Finnish time listing the threads that have been active
+during the last 7 days (archived threads included) and server statistics: the most active
+channels and members yesterday, over the past 7 days and over the past 30 days.
+
 ## Required packages
 
 - discord.py
@@ -33,7 +37,15 @@ Create venv environment inside project folder:
 1. Install dependencies: `pip install -r requirements.txt`
 1. Setup database: `python bottiapina-cli.py db-reset`
 1. Add YouTube channels: `python bottiapina-cli.py db-add-channel [channel id]`
+1. Seed the statistics with past messages: `python bottiapina-cli.py stats-backfill`
 1. Start the bot: `python bottiapina.py`
+
+`DISCORD_CHANNEL` is the channel new videos are posted to. `DISCORD_STATS_CHANNEL` is the
+channel the daily report goes to; leave it empty to use `DISCORD_CHANNEL` for both.
+
+The bot needs *View Channel* and *Read Message History* on every channel that should show up
+in the report. Private archived threads are skipped; including them would additionally
+require *Manage Threads*.
 
 ## CLI usage
 
@@ -52,12 +64,14 @@ To see available commands:
 The bot responds to commands with the `+` prefix. Available commands:
 
 - `+apinahelp` - Shows help text with all available commands
-- `+list` - Lists all followed YouTube channels with their names and IDs
-- `+add handle:channelname` - Adds a channel by handle (e.g. `+add handle:kampiapina`)
-- `+add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Adds a channel by YouTube channel ID
-- `+remove <channel_id>` - Removes a channel from the list
+- `+apina-list` - Lists all followed YouTube channels with their names and IDs
+- `+apina-add handle:channelname` - Adds a channel by handle (e.g. `+apina-add handle:kampiapina`)
+- `+apina-add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Adds a channel by YouTube channel ID
+- `+apina-remove <channel_id>` - Removes a channel from the list
+- `+apina-raportti` - Posts the daily thread and statistics report immediately
 
-**Note:** The `+add` and `+remove` commands require moderator permissions (manage_guild permission).
+**Note:** The `+apina-add`, `+apina-remove` and `+apina-raportti` commands require moderator
+permissions (manage_guild permission).
 
 You can also add channels using the CLI tool during setup, but the Discord commands allow managing channels without stopping the bot.
 
@@ -70,6 +84,28 @@ You can also add channels using the CLI tool during setup, but the Discord comma
 
 New content is checked every 15 minutes.  
 Reduce the time in extensions/ApinaCommands.py
+
+## Statistics
+
+The bot records metadata about every message it sees - channel, author, timestamp - into the
+`messages` table. **No message content is stored.** Rows older than 90 days are deleted
+automatically after each daily report.
+
+Statistics only cover the time the bot has been running, so run the backfill once to read the
+existing history in:
+
+`python bottiapina-cli.py stats-backfill 35`
+
+It logs into Discord, walks every channel and recently active thread, and exits. Running it
+again is harmless - messages are keyed by their id, so duplicates are ignored.
+
+To check the numbers without Discord:
+
+`python bottiapina-cli.py stats-top 7`
+
+The report itself is posted at 09:00 Finnish time (`REPORT_TIME` in
+`extensions/ApinaCommands.py`). "Yesterday" always means the previous full calendar day.
+Use `+apina-raportti` in Discord to trigger the report immediately when testing.
 
 ## Production deployment :D
 
