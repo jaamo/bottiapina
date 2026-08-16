@@ -66,11 +66,31 @@ def channel_label(guild, channel_id, stored_name):
     return "#%s" % (stored_name or channel_id)
 
 
-def member_label(guild, author_id, stored_name):
+# The name to show for a member. People recognise the per-server nickname, and
+# Member.display_name is exactly that - nick, then global name, then handle.
+#
+# Getting a Member is the tricky part. guild.get_member() only works when the
+# member cache is populated, which needs the privileged members intent, and
+# messages read back from history come with a plain User attached (Discord only
+# sends the member object with gateway events), so what was stored at log time
+# may well be the handle. One REST lookup per member fixes both; only a handful
+# of names are shown per report and `cache` keeps it to one lookup each.
+async def member_label(guild, author_id, stored_name, cache=None):
+    if cache is not None and author_id in cache:
+        return cache[author_id]
+
     member = guild.get_member(author_id) if guild else None
-    if member:
-        return member.display_name
-    return stored_name or str(author_id)
+    if member is None and guild:
+        try:
+            member = await guild.fetch_member(author_id)
+        except discord.HTTPException:
+            # Left the server, or not fetchable. Fall back to the snapshot.
+            member = None
+
+    name = member.display_name if member else (stored_name or str(author_id))
+    if cache is not None:
+        cache[author_id] = name
+    return name
 
 
 # List of threads with a message in the last ACTIVE_THREAD_DAYS days. `ignore`
@@ -113,9 +133,10 @@ def build_threads_embed(threads, guild, now=None, counts=None):
     return embed
 
 
-def build_stats_embed(apinaDB, guild, now=None):
+async def build_stats_embed(apinaDB, guild, now=None):
     now = now or now_local()
     embed = discord.Embed(title="📊 Tilastot", color=EMBED_COLOR)
+    names = {}
 
     for label, start, end in windows(now):
         start_utc, end_utc = utc_str(start), utc_str(end)
@@ -131,7 +152,8 @@ def build_stats_embed(apinaDB, guild, now=None):
 
         rows.append("**Jäsenet**")
         for author_id, count, name in apinaDB.top_members(start_utc, end_utc, TOP_N):
-            rows.append("%s — %s" % (member_label(guild, author_id, name), plural_messages(count)))
+            label_name = await member_label(guild, author_id, name, names)
+            rows.append("%s — %s" % (label_name, plural_messages(count)))
 
         rows.append("Yhteensä %s." % (plural_messages(total)))
         embed.add_field(name=label, value="\n".join(rows), inline=False)

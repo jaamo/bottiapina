@@ -111,6 +111,13 @@ loads the cog; commands are defined in the cog, not the entry point.
 - Statistics only exist for the time the bot has been running. `stats-backfill` seeds
   history; downtime leaves gaps unless it is re-run.
 - Bots are excluded from all rankings (`is_bot = 0`), but their messages are still stored.
+- **Member names** in the report are resolved when the embed is built, not read from the DB:
+  `Member.display_name` is the per-server nickname, `User.display_name` is only the global
+  name or handle. Messages read back from history carry a plain `User` (Discord sends the
+  member object with gateway events only), and `guild.get_member()` needs the privileged
+  members intent, which is off. So `stats.member_label()` falls back to one
+  `guild.fetch_member()` REST lookup per member, cached per report; `messages.author_name` is
+  only used when the member has left the server.
 - New-video detection is purely "latest upload id changed since last stored" — only the most
   recent upload per channel is tracked, so multiple uploads between polls may be missed.
 - Errors in the YouTube path are swallowed (bare `except`) and only `print`ed; there is no

@@ -119,9 +119,15 @@ existing history in:
 It logs into Discord, walks every channel and recently active thread, and exits. Running it
 again is harmless - messages are keyed by their id, so duplicates are ignored.
 
+Members are shown by their per-server nickname, looked up when the report is built, so a
+member who renames themselves shows up under the new name even in old statistics. Someone who
+has left the server is shown under the name recorded when they posted.
+
 To check the numbers without Discord:
 
 `python bottiapina-cli.py stats-top 7`
+
+(`stats-top` prints the names as they were stored, since it never connects to Discord.)
 
 Both schedules live in `extensions/ApinaCommands.py`: `THREADS_REPORT_TIME` (09:00 daily, the
 thread list) and `STATS_REPORT_TIME` + `STATS_REPORT_WEEKDAY` (midnight, Mondays only, the

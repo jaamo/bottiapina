@@ -250,7 +250,7 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista, ja maanantaiöisin t
         if not channel:
             return None
         print("Posting statistics to #%s (%s)." % (channel.name, channel.id))
-        await channel.send(embed=stats.build_stats_embed(apinaDB, channel.guild))
+        await channel.send(embed=await stats.build_stats_embed(apinaDB, channel.guild))
         return channel
 
     @tasks.loop(time=THREADS_REPORT_TIME)
