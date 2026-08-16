@@ -11,8 +11,8 @@ new video. It also opens a thread on each notification message. The bot and its 
 followed content.
 
 Second feature: a daily report posted at 09:00 Europe/Helsinki listing threads active in
-the last 7 days (archived included) plus most-active-channel/member statistics for
-yesterday, 7 days and 30 days.
+the last 7 days (archived included), and a weekly statistics post at Monday 00:00 with the
+most active channels/members over 7 and 30 days. Both go to `DISCORD_STATS_CHANNEL`.
 
 ## Architecture
 
@@ -41,7 +41,8 @@ Flat module layout, no package. Core modules imported by both the bot and the CL
   newest-archived first so the loop breaks at the cutoff. `last_activity(thread)` derives
   the timestamp from the `last_message_id` snowflake.
 - `stats.py` — reporting windows (local Finnish days), SQL aggregation via `ApinaDB`, and
-  the Finnish embeds. `build_report()` returns both embeds.
+  the Finnish embeds. `build_threads_report()` for the daily post, `build_stats_embed()`
+  for the weekly one.
 - `backfill.py` — one-shot `discord.Client` that reads message history into `messages`.
   Idempotent (`message_id` is the primary key).
 - `bottiapina-cli.py` — standalone CLI (no argparse; dispatches on `sys.argv[1]`) for DB
@@ -49,7 +50,7 @@ Flat module layout, no package. Core modules imported by both the bot and the CL
 
 Data flow: CLI/cog → `check_for_new_videos` → `YouTube` (API) + `ApinaDB` (state) → Discord.
 Stats flow: `on_message` listener (and `backfill.py` once) → `messages` table →
-`stats.build_report` → daily `tasks.loop(time=REPORT_TIME)` → Discord.
+`stats.build_*` → the `daily_report` / `weekly_stats` loops → Discord.
 
 ## Running
 
@@ -87,8 +88,9 @@ report — statistics still count them), `YOUTUBE_API_KEY`.
 - `+apina-add handle:<name>` or `+apina-add id:<channelId>` — add a channel (requires
   `manage_guild` permission)
 - `+apina-remove <channelId>` — remove a channel (requires `manage_guild`)
-- `+apina-raportti` — post the thread/stats report immediately (requires `manage_guild`);
-  this is the way to test the report without waiting for 09:00
+- `+apina-raportti` — post the thread list immediately (requires `manage_guild`)
+- `+apina-tilastot` — post the statistics immediately (requires `manage_guild`); these two
+  are the way to test without waiting for the scheduled times
 
 Note: command *names* are `apina-*` (e.g. `apina-add`), but some help/usage strings still
 show the older bare `+add`/`+remove`. The `@bot.event setup_hook` in `bottiapina.py` only
@@ -102,7 +104,10 @@ loads the cog; commands are defined in the cog, not the entry point.
   cursor would clobber another query's results mid-iteration. `get_channels()` returns
   `fetchall()` rows for the same reason.
 - The poll interval is hardcoded as `@tasks.loop(seconds=900)` in `ApinaCommands.py` — change
-  it there. The report time is `REPORT_TIME` in the same file.
+  it there, along with `THREADS_REPORT_TIME` and `STATS_REPORT_TIME`/`STATS_REPORT_WEEKDAY`.
+- `tasks.loop(time=...)` has no day-of-week filter, so `weekly_stats` wakes every midnight
+  and returns early unless it is Monday. Each loop has its own `state` guard key so a
+  restart cannot double-post.
 - Statistics only exist for the time the bot has been running. `stats-backfill` seeds
   history; downtime leaves gaps unless it is re-run.
 - Bots are excluded from all rankings (`is_bot = 0`), but their messages are still stored.

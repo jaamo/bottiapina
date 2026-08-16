@@ -29,13 +29,14 @@ def utc_str(dt):
     return dt.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
 
-# The three reporting windows, as (label, start_utc, end_utc). All of them end
-# at local midnight today, so "yesterday" is the last complete calendar day.
+# The reporting windows, as (label, start_utc, end_utc). Both end at local
+# midnight today, so they only ever cover complete days. The statistics are
+# posted at Monday midnight, which makes the 7 day window exactly the previous
+# Monday to Sunday week.
 def windows(now=None):
     now = now or now_local()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     return [
-        ("Eilen", today - datetime.timedelta(days=1), today),
         ("Viimeiset 7 päivää", today - datetime.timedelta(days=7), today),
         ("Viimeiset 30 päivää", today - datetime.timedelta(days=30), today),
     ]
@@ -138,13 +139,11 @@ def build_stats_embed(apinaDB, guild, now=None):
     return embed
 
 
-# Build both embeds of the daily report.
-async def build_report(apinaDB, guild, now=None, ignore=None):
+# The daily post: the list of active threads. Message counts come from our own
+# log and cover the same window as the list.
+async def build_threads_report(apinaDB, guild, now=None, ignore=None):
     now = now or now_local()
     now_utc = now.astimezone(datetime.timezone.utc)
     threads, since = await collect_active_threads(guild, now_utc, ignore)
     counts = apinaDB.message_counts_by_channel(utc_str(since), utc_str(now_utc))
-    return [
-        build_threads_embed(threads, guild, now_utc, counts),
-        build_stats_embed(apinaDB, guild, now),
-    ]
+    return build_threads_embed(threads, guild, now_utc, counts)

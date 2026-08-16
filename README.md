@@ -3,8 +3,11 @@
 This bot monitors given YouTube channels and posts a notification to Discord channel when new videos are published.
 
 It also posts a daily report at 09:00 Finnish time listing the threads that have been active
-during the last 7 days (archived threads included) and server statistics: the most active
-channels and members yesterday, over the past 7 days and over the past 30 days.
+during the last 7 days, archived threads included.
+
+Once a week, at the midnight between Sunday and Monday, it posts server statistics: the most
+active channels and members over the past 7 days (which at that moment is exactly the
+completed Monday to Sunday week) and over the past 30 days.
 
 ## Required packages
 
@@ -84,10 +87,11 @@ The bot responds to commands with the `+` prefix. Available commands:
 - `+apina-add handle:channelname` - Adds a channel by handle (e.g. `+apina-add handle:kampiapina`)
 - `+apina-add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Adds a channel by YouTube channel ID
 - `+apina-remove <channel_id>` - Removes a channel from the list
-- `+apina-raportti` (alias `+apina-tilastot`) - Posts the daily thread and statistics report immediately
+- `+apina-raportti` - Posts the active thread list immediately
+- `+apina-tilastot` - Posts the statistics immediately
 
-**Note:** The `+apina-add`, `+apina-remove` and `+apina-raportti` commands require moderator
-permissions (manage_guild permission).
+**Note:** The `+apina-add`, `+apina-remove`, `+apina-raportti` and `+apina-tilastot` commands
+require moderator permissions (manage_guild permission).
 
 You can also add channels using the CLI tool during setup, but the Discord commands allow managing channels without stopping the bot.
 
@@ -119,9 +123,11 @@ To check the numbers without Discord:
 
 `python bottiapina-cli.py stats-top 7`
 
-The report itself is posted at 09:00 Finnish time (`REPORT_TIME` in
-`extensions/ApinaCommands.py`). "Yesterday" always means the previous full calendar day.
-Use `+apina-raportti` in Discord to trigger the report immediately when testing.
+Both schedules live in `extensions/ApinaCommands.py`: `THREADS_REPORT_TIME` (09:00 daily, the
+thread list) and `STATS_REPORT_TIME` + `STATS_REPORT_WEEKDAY` (midnight, Mondays only, the
+statistics). Every window ends at local midnight, so the numbers only ever cover complete
+days. Use `+apina-raportti` and `+apina-tilastot` in Discord to trigger either one immediately
+when testing.
 
 ## Production deployment :D
 

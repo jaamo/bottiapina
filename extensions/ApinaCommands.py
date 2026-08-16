@@ -22,8 +22,12 @@ DISCORD_STATS_CHANNEL = os.getenv('DISCORD_STATS_CHANNEL') or DISCORD_CHANNEL
 # (preferred) or names. Statistics still count these channels.
 IGNORED_CHANNELS = thread_tools.parse_ignore_list(os.getenv('DISCORD_IGNORED_CHANNELS'))
 
-# When the daily report is posted, Finnish time.
-REPORT_TIME = datetime.time(hour=9, minute=0, tzinfo=stats.TIMEZONE)
+# When the daily thread list is posted, Finnish time.
+THREADS_REPORT_TIME = datetime.time(hour=9, minute=0, tzinfo=stats.TIMEZONE)
+
+# The statistics are posted weekly, at the midnight between Sunday and Monday.
+STATS_REPORT_TIME = datetime.time(hour=0, minute=0, tzinfo=stats.TIMEZONE)
+STATS_REPORT_WEEKDAY = 0  # Monday, as datetime.weekday() counts them.
 
 # How long message rows are kept.
 RETENTION_DAYS = 90
@@ -36,6 +40,7 @@ class ApinaCommands(commands.Cog):
         self.bot = bot
         self.check_for_new_videos.start()
         self.daily_report.start()
+        self.weekly_stats.start()
         print("Initialize bot")
         ignored_ids, ignored_names = IGNORED_CHANNELS
         if ignored_ids or ignored_names:
@@ -45,6 +50,7 @@ class ApinaCommands(commands.Cog):
     def cog_unload(self):
         self.check_for_new_videos.cancel()
         self.daily_report.cancel()
+        self.weekly_stats.cancel()
         print("Unload bot")
 
     # Record message metadata for the statistics. No message content is stored.
@@ -83,11 +89,14 @@ class ApinaCommands(commands.Cog):
 `+apina-remove <channel_id>` - Poistaa kanavan listalta
 *Vain moderaattorit voivat käyttää*
 
-`+apina-raportti` (tai `+apina-tilastot`) - Lähettää päivittäisen ketju- ja tilastoraportin heti
+`+apina-raportti` - Lähettää listan aktiivisista ketjuista heti
+*Vain moderaattorit voivat käyttää*
+
+`+apina-tilastot` - Lähettää tilastot heti
 *Vain moderaattorit voivat käyttää*
 
 Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita.
-Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
+Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista, ja maanantaiöisin tilastot."""
         await ctx.send(help_text)
 
     @commands.command(name="apina-list")
@@ -201,9 +210,9 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
         else:
             print("Connection to Discord is down. Retrying soon...")
 
-    # Build the report and post it to the stats channel as a normal message.
-    # Returns the channel it posted to, or None.
-    async def post_report(self):
+    # The channel the reports are posted to, as a normal message. None when it
+    # cannot be resolved.
+    def report_channel(self):
         if not DISCORD_STATS_CHANNEL:
             print("No stats channel configured, skipping report.")
             return None
@@ -219,19 +228,34 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
             parent = channel.parent
             if not parent:
                 print("Stats channel %s is a thread with no reachable parent." % (DISCORD_STATS_CHANNEL))
-                return False
+                return None
             print("Stats channel %s is a thread, posting to #%s instead." % (DISCORD_STATS_CHANNEL, parent.name))
             channel = parent
 
-        print("Posting report to #%s (%s)." % (channel.name, channel.id))
-        embeds = await stats.build_report(apinaDB, channel.guild, ignore=IGNORED_CHANNELS)
-        for embed in embeds:
-            await channel.send(embed=embed)
         return channel
 
-    @tasks.loop(time=REPORT_TIME)
+    # Post the daily thread list. Returns the channel it posted to, or None.
+    async def post_threads_report(self):
+        channel = self.report_channel()
+        if not channel:
+            return None
+        print("Posting thread report to #%s (%s)." % (channel.name, channel.id))
+        embed = await stats.build_threads_report(apinaDB, channel.guild, ignore=IGNORED_CHANNELS)
+        await channel.send(embed=embed)
+        return channel
+
+    # Post the weekly statistics. Returns the channel it posted to, or None.
+    async def post_stats_report(self):
+        channel = self.report_channel()
+        if not channel:
+            return None
+        print("Posting statistics to #%s (%s)." % (channel.name, channel.id))
+        await channel.send(embed=stats.build_stats_embed(apinaDB, channel.guild))
+        return channel
+
+    @tasks.loop(time=THREADS_REPORT_TIME)
     async def daily_report(self):
-        # The loop only fires once a day, but a restart close to REPORT_TIME
+        # The loop only fires once a day, but a restart close to the report time
         # could fire it again. One report per day, no matter what.
         today = stats.now_local().strftime('%Y-%m-%d')
         if apinaDB.get_state('last_daily_report_date') == today:
@@ -240,7 +264,7 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
 
         print("Posting daily report for %s." % (today))
         try:
-            if not await self.post_report():
+            if not await self.post_threads_report():
                 return
         except Exception as e:
             print("Failed to post daily report: %s" % (e))
@@ -257,12 +281,48 @@ Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
     async def before_daily_report(self):
         await self.bot.wait_until_ready()
 
-    @commands.command(name="apina-raportti", aliases=["apina-tilastot"])
+    @tasks.loop(time=STATS_REPORT_TIME)
+    async def weekly_stats(self):
+        # tasks.loop(time=...) has no day-of-week filter, so it wakes up every
+        # midnight and everything but Monday is skipped.
+        now = stats.now_local()
+        if now.weekday() != STATS_REPORT_WEEKDAY:
+            return
+
+        today = now.strftime('%Y-%m-%d')
+        if apinaDB.get_state('last_weekly_stats_date') == today:
+            print("Weekly statistics already posted for %s." % (today))
+            return
+
+        print("Posting weekly statistics for %s." % (today))
+        try:
+            if not await self.post_stats_report():
+                return
+        except Exception as e:
+            print("Failed to post weekly statistics: %s" % (e))
+            return
+
+        apinaDB.set_state('last_weekly_stats_date', today)
+
+    @weekly_stats.before_loop
+    async def before_weekly_stats(self):
+        await self.bot.wait_until_ready()
+
+    @commands.command(name="apina-raportti")
     @commands.has_permissions(manage_guild=True)
     async def report(self, ctx):
-        await ctx.send("Kootaan raporttia...")
+        await self.run_report(ctx, self.post_threads_report, "Kootaan ketjuraporttia...")
+
+    @commands.command(name="apina-tilastot")
+    @commands.has_permissions(manage_guild=True)
+    async def statistics(self, ctx):
+        await self.run_report(ctx, self.post_stats_report, "Kootaan tilastoja...")
+
+    # Run one of the report posters on demand and tell the caller how it went.
+    async def run_report(self, ctx, poster, waiting_message):
+        await ctx.send(waiting_message)
         try:
-            channel = await self.post_report()
+            channel = await poster()
         except Exception as e:
             await ctx.send("Virhe raportin koostamisessa: %s" % (str(e)))
             return
