@@ -1,6 +1,7 @@
 import os
 import json
 
+import requests
 import googleapiclient.discovery
 import googleapiclient.errors
 from dotenv import load_dotenv
@@ -8,7 +9,7 @@ from dotenv import load_dotenv
 scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
 
 load_dotenv()
-YOUTUBE_APY_KEY = os.getenv('YOUTUBE_APY_KEY')
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 
 # Manage YouTube API queries.
 class YouTube:
@@ -18,12 +19,21 @@ class YouTube:
 
     def __init__(self):
         self.youtube = googleapiclient.discovery.build(
-            self.api_service_name, self.api_version, developerKey=YOUTUBE_APY_KEY)
+            self.api_service_name, self.api_version, developerKey=YOUTUBE_API_KEY)
 
     def get_channel(self, channel_id):
         request = self.youtube.channels().list(
             part="snippet,contentDetails",
             id=channel_id
+        )
+        return request.execute()
+
+    def get_channel_by_handle(self, handle):
+        # Remove @ if present
+        handle = handle.lstrip('@')
+        request = self.youtube.channels().list(
+            part="snippet,contentDetails",
+            forHandle=handle
         )
         return request.execute()
 
@@ -35,6 +45,23 @@ class YouTube:
         )
         latest_upload = request.execute()
         return latest_upload['items'][0]['id']
+
+    def is_short(self, video_id):
+        # The YouTube API has no flag identifying Shorts. Heuristic: the
+        # /shorts/<id> URL returns HTTP 200 for a real Short, but redirects
+        # (3xx) to the normal watch page for a regular (long) video.
+        # On any error we assume it is NOT a Short so real videos are never
+        # silently suppressed.
+        try:
+            response = requests.get(
+                "https://www.youtube.com/shorts/%s" % (video_id),
+                allow_redirects=False,
+                timeout=10,
+            )
+            return response.status_code == 200
+        except Exception:
+            print("Short check failed for %s, assuming not a short." % (video_id))
+            return False
 
     def get_latest_upload(self, playlist_id):
         request = self.youtube.playlistItems().list(

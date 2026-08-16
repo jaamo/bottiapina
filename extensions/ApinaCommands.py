@@ -1,3 +1,4 @@
+import datetime
 import os
 import json
 import threading
@@ -10,35 +11,168 @@ from apinadb import ApinaDB
 from youtube import YouTube
 
 from functions import check_for_new_videos
+import stats
 
 DISCORD_CHANNEL = os.getenv('DISCORD_CHANNEL')
+# Daily report goes to its own channel, falling back to the video channel.
+DISCORD_STATS_CHANNEL = os.getenv('DISCORD_STATS_CHANNEL') or DISCORD_CHANNEL
+
+# When the daily report is posted, Finnish time.
+REPORT_TIME = datetime.time(hour=9, minute=0, tzinfo=stats.TIMEZONE)
+
+# How long message rows are kept.
+RETENTION_DAYS = 90
 
 apinaDB = ApinaDB()
 youtube = YouTube()
 
 class ApinaCommands(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.check_for_new_videos.start()
+        self.daily_report.start()
         print("Initialize bot")
 
     def cog_unload(self):
         self.check_for_new_videos.cancel()
+        self.daily_report.cancel()
         print("Unload bot")
 
-    @commands.command(name="wtf")
-    async def wtf(self, ctx):
-        channel_names = []
+    # Record message metadata for the statistics. No message content is stored.
+    # This is a cog listener, not an on_message override, so it does not
+    # interfere with command processing.
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.guild is None:
+            return
+        is_thread = isinstance(message.channel, discord.Thread)
+        try:
+            apinaDB.log_message(
+                message.id,
+                message.channel.id,
+                message.channel.parent_id if is_thread else None,
+                is_thread,
+                message.author.id,
+                message.author.display_name,
+                message.channel.name,
+                message.author.bot,
+                message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            )
+        except Exception as e:
+            print("Failed to log message %s: %s" % (message.id, e))
+
+    @commands.command(name="apinahelp")
+    async def help(self, ctx):
+        help_text = """**Bottiapina - Käytettävissä olevat komennot:**
+
+`+apina-list` - Näyttää listan kaikista seuratuista YouTube-kanavista
+
+`+apina-add handle:channelname` - Lisää kanavan handlella (esim. `+apina-add handle:kampiapina`)
+`+apina-add id:UC2Prp3t7Ol-a041FXTyCzNQ` - Lisää kanavan ID:llä
+*Vain moderaattorit voivat käyttää*
+
+`+apina-remove <channel_id>` - Poistaa kanavan listalta
+*Vain moderaattorit voivat käyttää*
+
+`+apina-raportti` - Lähettää päivittäisen ketju- ja tilastoraportin heti
+*Vain moderaattorit voivat käyttää*
+
+Botti lähettää automaattisesti ilmoituksen, kun seuratut kanavat julkaisevat uusia videoita.
+Joka aamu klo 9 botti kokoaa listan aktiivisista ketjuista ja tilastot."""
+        await ctx.send(help_text)
+
+    @commands.command(name="apina-list")
+    async def list(self, ctx):
+        channel_list = []
         channels = apinaDB.get_channels()
         for channel in channels:
-            channel_names.append(channel[1])
-        await ctx.send('''No mitäs mitäs! Olen bottiapina ja lähettelen tänne aina viestiä, kun YouTubeen postaillaan uusia videoita.\n
-Minut on koodattu Pythonilla ja löydyn GitHubista: https://github.com/jaamo/bottiapina\n
-Tällä hetkellä seuraan näitä kanavia: %s.\n
-Kanavalistalle lisäillään Suomalaisia YouTube-kanavia, jotka tuottavat aktiivesti pyöräilyaiheista sisältöä. Jos joku kanava listalta puuttuu, niin vinkkaa ylläpidolle!''' % (", ".join(channel_names)))
+            channel_id = channel[0]
+            channel_name = channel[1]
+            channel_list.append("%s (%s)" % (channel_name, channel_id))
+        await ctx.send('''Tällä hetkellä seuraan näitä kanavia:\n%s''' % ("\n".join(channel_list)))
+
+    @commands.command(name="apina-add")
+    @commands.has_permissions(manage_guild=True)
+    async def add(self, ctx, identifier: str = None):
+        if not identifier:
+            await ctx.send("Käyttö: `+add handle:channelname` tai `+add id:UC2Prp3t7Ol-a041FXTyCzNQ`")
+            return
+
+        # Detect if identifier is a handle (starts with handle:) or an ID (starts with id:)
+        is_handle = identifier.startswith('handle:')
+        is_id = identifier.startswith('id:')
+        
+        # Extract the actual identifier
+        if is_handle:
+            handle = identifier[7:]  # Remove "handle:" prefix
+        elif is_id:
+            channel_id = identifier[3:]  # Remove "id:" prefix
+        else:
+            # For backward compatibility, assume it's an ID if no prefix
+            channel_id = identifier
+            is_id = True
+        
+        # Get channel info from YouTube API
+        try:
+            if is_handle:
+                # Get channel by handle
+                channel_list = youtube.get_channel_by_handle(handle)
+            else:
+                # Get channel by ID
+                channel_list = youtube.get_channel(channel_id)
+
+            if "items" not in channel_list or len(channel_list["items"]) == 0:
+                await ctx.send("Kanavaa ei löytynyt YouTube API:sta.")
+                return
+
+            channel_id = channel_list["items"][0]["id"]
+            channel_name = channel_list["items"][0]["snippet"]["title"]
+            upload_playlist_id = channel_list["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+            # Check if channel already exists
+            if apinaDB.channel_exists(channel_id):
+                await ctx.send("Kanava on jo listalla!")
+                return
+
+            # Add channel to database
+            apinaDB.add_channel(channel_id, channel_name, upload_playlist_id)
+            await ctx.send("Kanava lisätty: %s (%s)" % (channel_name, channel_id))
+        except Exception as e:
+            await ctx.send("Virhe kanavan lisäämisessä: %s" % (str(e)))
+
+    @commands.command(name="apina-remove")
+    @commands.has_permissions(manage_guild=True)
+    async def remove(self, ctx, channel_id: str = None):
+        if not channel_id:
+            await ctx.send("Käyttö: `+remove <YouTube-kanavan ID>`")
+            return
+
+        # Check if channel exists
+        if not apinaDB.channel_exists(channel_id):
+            await ctx.send("Kanavaa ei löytynyt listalta!")
+            return
+
+        # Get channel name before removing
+        channels = apinaDB.get_channels()
+        channel_name = None
+        for channel in channels:
+            if channel[0] == channel_id:
+                channel_name = channel[1]
+                break
+
+        # Remove channel from database
+        if apinaDB.remove_channel(channel_id):
+            if channel_name:
+                await ctx.send("Kanava poistettu: %s" % (channel_name))
+            else:
+                await ctx.send("Kanava poistettu: %s" % (channel_id))
+        else:
+            await ctx.send("Virhe kanavan poistamisessa.")
 
     @tasks.loop(seconds = 900) # 15 mins, 900 seconds
     async def check_for_new_videos(self):
+        if not DISCORD_CHANNEL:
+            return
         channel = self.bot.get_channel(int(DISCORD_CHANNEL))
         print("Checking for new content. Posting to channel %s" % (DISCORD_CHANNEL))
         if channel:
@@ -46,7 +180,8 @@ Kanavalistalle lisäillään Suomalaisia YouTube-kanavia, jotka tuottavat aktiiv
             print("New content:")
             print(new_videos)
             for video in new_videos:
-                await channel.send("Uusi video! %s: %s %s" % (video["channel_name"], video["video_title"], video["video_url"]))
+                msg = await channel.send("Uusi video! %s: %s %s" % (video["channel_name"], video["video_title"], video["video_url"]))
+                await msg.create_thread(name=video["video_title"])
                 apinaDB.update_latest_video(
                     video["channel_id"],
                     video["video_id"],
@@ -56,6 +191,59 @@ Kanavalistalle lisäillään Suomalaisia YouTube-kanavia, jotka tuottavat aktiiv
                 )
         else:
             print("Connection to Discord is down. Retrying soon...")
+
+    # Build the report and post it to the stats channel.
+    async def post_report(self):
+        if not DISCORD_STATS_CHANNEL:
+            print("No stats channel configured, skipping report.")
+            return False
+        channel = self.bot.get_channel(int(DISCORD_STATS_CHANNEL))
+        if not channel:
+            print("Stats channel %s not found. Retrying later..." % (DISCORD_STATS_CHANNEL))
+            return False
+
+        embeds = await stats.build_report(apinaDB, channel.guild)
+        for embed in embeds:
+            await channel.send(embed=embed)
+        return True
+
+    @tasks.loop(time=REPORT_TIME)
+    async def daily_report(self):
+        # The loop only fires once a day, but a restart close to REPORT_TIME
+        # could fire it again. One report per day, no matter what.
+        today = stats.now_local().strftime('%Y-%m-%d')
+        if apinaDB.get_state('last_daily_report_date') == today:
+            print("Daily report already posted for %s." % (today))
+            return
+
+        print("Posting daily report for %s." % (today))
+        try:
+            if not await self.post_report():
+                return
+        except Exception as e:
+            print("Failed to post daily report: %s" % (e))
+            return
+
+        apinaDB.set_state('last_daily_report_date', today)
+
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=RETENTION_DAYS)
+        removed = apinaDB.prune_messages(stats.utc_str(cutoff))
+        if removed > 0:
+            print("Pruned %d message rows older than %d days." % (removed, RETENTION_DAYS))
+
+    @daily_report.before_loop
+    async def before_daily_report(self):
+        await self.bot.wait_until_ready()
+
+    @commands.command(name="apina-raportti")
+    @commands.has_permissions(manage_guild=True)
+    async def report(self, ctx):
+        await ctx.send("Kootaan raporttia...")
+        try:
+            if not await self.post_report():
+                await ctx.send("Tilastokanavaa ei löytynyt.")
+        except Exception as e:
+            await ctx.send("Virhe raportin koostamisessa: %s" % (str(e)))
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ApinaCommands(bot))

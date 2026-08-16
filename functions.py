@@ -20,6 +20,14 @@ def check_for_new_videos(youtube, apinaDB):
             # Check if video is new.
             if latest_video_id != new_latest_video["video_id"]:
                 # print("New video %s for channel %s." % (new_latest_video_id, upload_playlist_id))
+
+                # Skip YouTube Shorts, only post long videos. The real video id
+                # lives in the watch URL (video_id above is the playlist item id).
+                real_video_id = new_latest_video["video_url"].rsplit("=", 1)[-1]
+                if youtube.is_short(real_video_id):
+                    print("Skipping short %s for channel %s." % (real_video_id, channel_name))
+                    continue
+
                 new_videos.append({
                     "channel_id": channel_id, 
                     "channel_name": channel_name, 

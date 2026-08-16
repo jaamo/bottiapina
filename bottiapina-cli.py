@@ -18,6 +18,8 @@ def print_help():
     print("  get-latest-video               Get latest video from the first channel from the list.")
     print("  reset-channel [channel id]     Reset latest video for channel")
     print("  db-reset                       DELETE EVERYTHING and recreate database.")
+    print("  stats-backfill [days=35]       Read Discord message history into the stats database.")
+    print("  stats-top [days=7]             Print the most active channels and members.")
 
 # Quit if not enough arguments.
 if len(sys.argv) == 1:
@@ -98,6 +100,33 @@ elif command == "reset-channel":
         '',
         '',
     )
+
+# Read Discord message history into the stats database.
+elif command == "stats-backfill":
+    import backfill
+    days = int(sys.argv[2]) if len(sys.argv) > 2 else 35
+    backfill.run(apinaDB, days)
+
+# Print the most active channels and members straight from the database.
+elif command == "stats-top":
+    import datetime
+    import stats
+    days = int(sys.argv[2]) if len(sys.argv) > 2 else 7
+    now = stats.now_local()
+    end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = end - datetime.timedelta(days=days)
+    start_utc, end_utc = stats.utc_str(start), stats.utc_str(end)
+
+    print("%s - %s (%d days), %d messages" % (
+        start.date(), end.date(), days, apinaDB.message_count(start_utc, end_utc)))
+    print("")
+    print("Top channels:")
+    for channel_id, count, name in apinaDB.top_channels(start_utc, end_utc, 10):
+        print("  %-40s %d" % (name or channel_id, count))
+    print("")
+    print("Top members:")
+    for author_id, count, name in apinaDB.top_members(start_utc, end_utc, 10):
+        print("  %-40s %d" % (name or author_id, count))
 
 else:
     print("Invalid command.")
