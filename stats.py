@@ -15,7 +15,8 @@ ACTIVE_THREAD_DAYS = 7
 MAX_THREADS_LISTED = 25
 
 # How many entries per statistic.
-TOP_N = 3
+TOP_CHANNELS = 3
+TOP_MEMBERS = 10
 
 EMBED_COLOR = 0x00A86B
 
@@ -147,11 +148,11 @@ async def build_stats_embed(apinaDB, guild, now=None):
             continue
 
         rows = ["**Kanavat**"]
-        for channel_id, count, name in apinaDB.top_channels(start_utc, end_utc, TOP_N):
+        for channel_id, count, name in apinaDB.top_channels(start_utc, end_utc, TOP_CHANNELS):
             rows.append("%s — %s" % (channel_label(guild, channel_id, name), plural_messages(count)))
 
         rows.append("**Jäsenet**")
-        for author_id, count, name in apinaDB.top_members(start_utc, end_utc, TOP_N):
+        for author_id, count, name in apinaDB.top_members(start_utc, end_utc, TOP_MEMBERS):
             label_name = await member_label(guild, author_id, name, names)
             rows.append("%s — %s" % (label_name, plural_messages(count)))
 
