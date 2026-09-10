@@ -125,7 +125,7 @@ def build_threads_embed(threads, guild, now=None, counts=None):
         parts.append(format_ago(last_activity(thread), now))
         if thread.archived:
             parts.append("arkistoitu")
-        lines.append("• [%s](%s) — %s" % (thread.name, thread.jump_url, " · ".join(parts)))
+        lines.append("• <#%s> — %s" % (thread.id, " · ".join(parts)))
 
     if len(threads) > MAX_THREADS_LISTED:
         lines.append("…ja %d muuta ketjua." % (len(threads) - MAX_THREADS_LISTED))
